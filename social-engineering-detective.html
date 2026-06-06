@@ -1,0 +1,2663 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Social Engineering Detective</title>
+    <style>
+      :root {
+        --bg0: #05070b;
+        --bg1: #07111d;
+        --panel: rgba(8, 16, 26, 0.82);
+        --stroke: rgba(118, 255, 232, 0.22);
+        --stroke2: rgba(118, 255, 232, 0.12);
+        --text: rgba(238, 255, 250, 0.92);
+        --muted: rgba(238, 255, 250, 0.68);
+        --muted2: rgba(238, 255, 250, 0.5);
+        --cyan: #44ffe6;
+        --cyan2: #12c9ff;
+        --good: #45ff98;
+        --warn: #ffcc56;
+        --bad: #ff4d67;
+        --shadow: rgba(0, 0, 0, 0.55);
+        --radius: 18px;
+        --radius2: 14px;
+        --focus: 0 0 0 3px rgba(68, 255, 230, 0.22), 0 0 0 1px rgba(68, 255, 230, 0.32) inset;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background: radial-gradient(1400px 900px at 20% 10%, rgba(68, 255, 230, 0.1), transparent 50%),
+          radial-gradient(1200px 800px at 80% 20%, rgba(18, 201, 255, 0.12), transparent 55%),
+          radial-gradient(1000px 700px at 60% 90%, rgba(255, 77, 103, 0.06), transparent 55%),
+          linear-gradient(180deg, var(--bg0), var(--bg1));
+        font-family: var(--sans);
+        overflow-x: hidden;
+      }
+
+      .fx {
+        pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+
+      .fx::before {
+        content: "";
+        position: absolute;
+        inset: -80px;
+        background:
+          linear-gradient(transparent 0 96%, rgba(68, 255, 230, 0.09) 96% 100%),
+          linear-gradient(90deg, transparent 0 96%, rgba(68, 255, 230, 0.07) 96% 100%);
+        background-size: 64px 64px, 64px 64px;
+        transform: perspective(800px) rotateX(62deg) translateY(-8vh);
+        transform-origin: 50% 0%;
+        opacity: 0.22;
+        filter: blur(0.3px);
+        animation: gridDrift 16s linear infinite;
+      }
+
+      .fx::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.045) 1px, transparent 1px, transparent 4px);
+        opacity: 0.08;
+        mix-blend-mode: overlay;
+      }
+
+      @keyframes gridDrift {
+        0% {
+          transform: perspective(800px) rotateX(62deg) translateY(-8vh) translateX(0px);
+        }
+        100% {
+          transform: perspective(800px) rotateX(62deg) translateY(-8vh) translateX(64px);
+        }
+      }
+
+      .wrap {
+        position: relative;
+        z-index: 1;
+        min-height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      header {
+        padding: 18px 18px 0;
+      }
+
+      .topbar {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        letter-spacing: 0.5px;
+      }
+
+      .brand .sig {
+        font-family: var(--mono);
+        font-weight: 750;
+        text-transform: uppercase;
+        font-size: 14px;
+        color: rgba(68, 255, 230, 0.92);
+        border: 1px solid rgba(68, 255, 230, 0.22);
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(2, 10, 14, 0.55);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+      }
+
+      .brand .title {
+        font-weight: 820;
+        font-size: 18px;
+      }
+
+      .hud {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
+      .pill {
+        border: 1px solid var(--stroke2);
+        background: rgba(4, 10, 16, 0.45);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .pill strong {
+        color: var(--text);
+        font-weight: 780;
+      }
+
+      .progress {
+        width: 280px;
+        height: 10px;
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid rgba(68, 255, 230, 0.18);
+        background: rgba(4, 10, 16, 0.45);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+
+      .progress > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, rgba(68, 255, 230, 0.95), rgba(18, 201, 255, 0.9));
+        box-shadow: 0 0 18px rgba(68, 255, 230, 0.3);
+        transition: width 260ms ease;
+      }
+
+      main {
+        padding: 18px;
+        display: grid;
+        align-items: start;
+      }
+
+      .panel {
+        max-width: 1100px;
+        width: 100%;
+        margin: 0 auto;
+        background: var(--panel);
+        border: 1px solid var(--stroke);
+        border-radius: var(--radius);
+        box-shadow: 0 24px 80px var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(1200px 600px at 10% 0%, rgba(68, 255, 230, 0.12), transparent 55%),
+          radial-gradient(900px 500px at 90% 10%, rgba(18, 201, 255, 0.12), transparent 60%),
+          radial-gradient(900px 600px at 50% 105%, rgba(255, 77, 103, 0.07), transparent 55%);
+        opacity: 0.8;
+        pointer-events: none;
+      }
+
+      .panel > .inner {
+        position: relative;
+        padding: 18px;
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+        animation: screenIn 380ms ease both;
+      }
+
+      @keyframes screenIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0px);
+        }
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0 0 10px;
+        letter-spacing: 0.2px;
+      }
+
+      h1 {
+        font-weight: 900;
+        font-size: clamp(28px, 3.3vw, 44px);
+      }
+
+      h2 {
+        font-weight: 860;
+        font-size: 22px;
+      }
+
+      h3 {
+        font-weight: 820;
+        font-size: 16px;
+        color: rgba(68, 255, 230, 0.92);
+        font-family: var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .sub {
+        color: var(--muted2);
+        font-size: 14px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .casefile {
+        background: rgba(2, 10, 14, 0.5);
+        border: 1px solid rgba(68, 255, 230, 0.16);
+        border-radius: var(--radius2);
+        padding: 14px 14px 12px;
+      }
+
+      .kv {
+        display: grid;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .kv .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .kv .row strong {
+        color: var(--text);
+      }
+
+      .actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .btnrow {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      button {
+        appearance: none;
+        border: 1px solid rgba(68, 255, 230, 0.22);
+        background: rgba(4, 14, 20, 0.55);
+        color: var(--text);
+        border-radius: 14px;
+        padding: 14px 14px;
+        font-size: 15px;
+        font-weight: 760;
+        min-height: 52px;
+        cursor: pointer;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+      }
+
+      button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus), 0 14px 36px rgba(0, 0, 0, 0.28);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(68, 255, 230, 0.38);
+        background: rgba(6, 18, 26, 0.72);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, rgba(68, 255, 230, 0.18), rgba(18, 201, 255, 0.1));
+        border-color: rgba(68, 255, 230, 0.44);
+      }
+
+      .btn-danger {
+        border-color: rgba(255, 77, 103, 0.38);
+        background: linear-gradient(180deg, rgba(255, 77, 103, 0.16), rgba(4, 14, 20, 0.55));
+      }
+
+      .btn-ghost {
+        background: rgba(4, 14, 20, 0.25);
+        border-color: rgba(238, 255, 250, 0.16);
+        color: rgba(238, 255, 250, 0.86);
+      }
+
+      .btn-small {
+        min-height: 42px;
+        padding: 10px 12px;
+        font-size: 13px;
+        border-radius: 12px;
+        font-weight: 740;
+      }
+
+      .cardgrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .card {
+        background: rgba(2, 10, 14, 0.55);
+        border: 1px solid rgba(68, 255, 230, 0.16);
+        border-radius: var(--radius2);
+        padding: 14px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: rgba(68, 255, 230, 0.88);
+        border: 1px solid rgba(68, 255, 230, 0.18);
+        background: rgba(2, 10, 14, 0.45);
+        padding: 6px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+      }
+
+      .learnlist {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .gameTop {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .categoryChip {
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        color: rgba(238, 255, 250, 0.8);
+        background: rgba(2, 10, 14, 0.42);
+        white-space: nowrap;
+      }
+
+      .scenarioBox {
+        margin-top: 12px;
+        background: rgba(2, 10, 14, 0.5);
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        border-radius: var(--radius2);
+        padding: 14px;
+      }
+
+      .scenarioBox .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-family: var(--mono);
+        color: var(--muted2);
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+
+      .scenarioTitle {
+        font-weight: 860;
+        font-size: 18px;
+        margin: 0;
+      }
+
+      .scenarioBox .story {
+        font-size: 15px;
+        color: rgba(238, 255, 250, 0.86);
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+
+      .steps {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .step {
+        background: rgba(2, 10, 14, 0.42);
+        border: 1px solid rgba(68, 255, 230, 0.12);
+        border-radius: var(--radius2);
+        overflow: hidden;
+      }
+
+      .stepHead {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(68, 255, 230, 0.12);
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .stepHead .kicker {
+        font-family: var(--mono);
+        color: rgba(68, 255, 230, 0.9);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .stepHead .status {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted2);
+      }
+
+      .stepBody {
+        padding: 12px 14px 14px;
+      }
+
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .choice {
+        text-align: left;
+        width: 100%;
+        padding: 12px 12px;
+        min-height: 56px;
+      }
+
+      .choice[data-selected="true"] {
+        border-color: rgba(68, 255, 230, 0.55);
+        background: linear-gradient(180deg, rgba(68, 255, 230, 0.18), rgba(4, 14, 20, 0.55));
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(68, 255, 230, 0.2) inset;
+      }
+
+      .choice.good {
+        border-color: rgba(69, 255, 152, 0.55);
+        background: linear-gradient(180deg, rgba(69, 255, 152, 0.17), rgba(4, 14, 20, 0.55));
+      }
+
+      .choice.bad {
+        border-color: rgba(255, 77, 103, 0.55);
+        background: linear-gradient(180deg, rgba(255, 77, 103, 0.16), rgba(4, 14, 20, 0.55));
+      }
+
+      .feedback {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: var(--radius2);
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        background: rgba(2, 10, 14, 0.5);
+        display: none;
+      }
+
+      .feedback.show {
+        display: block;
+        animation: popIn 220ms ease both;
+      }
+
+      @keyframes popIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0px) scale(1);
+        }
+      }
+
+      .feedback.good {
+        border-color: rgba(69, 255, 152, 0.35);
+        box-shadow: 0 0 0 1px rgba(69, 255, 152, 0.12) inset;
+      }
+
+      .feedback.bad {
+        border-color: rgba(255, 77, 103, 0.35);
+        box-shadow: 0 0 0 1px rgba(255, 77, 103, 0.12) inset;
+        animation: shake 260ms ease both;
+      }
+
+      @keyframes shake {
+        0% {
+          transform: translateX(0);
+        }
+        30% {
+          transform: translateX(-4px);
+        }
+        60% {
+          transform: translateX(4px);
+        }
+        100% {
+          transform: translateX(0);
+        }
+      }
+
+      .feedback .headline {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+        margin-bottom: 6px;
+        font-family: var(--mono);
+      }
+
+      .feedback .headline .label {
+        font-weight: 860;
+        letter-spacing: 0.4px;
+        color: rgba(238, 255, 250, 0.92);
+      }
+
+      .feedback .headline .pts {
+        color: var(--muted2);
+        font-size: 12px;
+      }
+
+      .feedback .body {
+        color: rgba(238, 255, 250, 0.86);
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .gameActions {
+        margin-top: 12px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .stageDots {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(238, 255, 250, 0.18);
+        background: rgba(4, 14, 20, 0.35);
+      }
+
+      .dot.on {
+        border-color: rgba(68, 255, 230, 0.5);
+        background: rgba(68, 255, 230, 0.28);
+        box-shadow: 0 0 14px rgba(68, 255, 230, 0.22);
+      }
+
+      .dot.done {
+        border-color: rgba(69, 255, 152, 0.55);
+        background: rgba(69, 255, 152, 0.22);
+        box-shadow: 0 0 14px rgba(69, 255, 152, 0.18);
+      }
+
+      .resultsGrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .scoreRing,
+      .resultCard {
+        background: rgba(2, 10, 14, 0.55);
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        border-radius: var(--radius2);
+        padding: 14px;
+      }
+
+      .ring {
+        width: 140px;
+        height: 140px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(2, 10, 14, 0.95) 58%, transparent 59%),
+          conic-gradient(from 180deg, rgba(68, 255, 230, 0.9) 0deg, rgba(255, 77, 103, 0.08) 0deg);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+        border: 1px solid rgba(68, 255, 230, 0.14);
+      }
+
+      .ring .pct {
+        font-family: var(--mono);
+        font-weight: 900;
+        font-size: 30px;
+      }
+
+      .ring .small {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted2);
+        margin-top: 2px;
+        text-align: center;
+      }
+
+      .resultCard .line {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+        font-family: var(--mono);
+        color: var(--muted);
+        margin: 8px 0;
+        font-size: 12px;
+      }
+
+      .rating {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(68, 255, 230, 0.18);
+        background: rgba(2, 10, 14, 0.5);
+        font-family: var(--mono);
+        color: rgba(238, 255, 250, 0.9);
+      }
+
+      .rating .badge {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(68, 255, 230, 0.7);
+        box-shadow: 0 0 16px rgba(68, 255, 230, 0.25);
+      }
+
+      .review {
+        margin-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      details.reviewItem {
+        background: rgba(2, 10, 14, 0.5);
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      details.reviewItem summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        font-weight: 820;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      details.reviewItem summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .reviewBody {
+        padding: 0 14px 14px;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .reviewBody .mini {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted2);
+        margin: 10px 0;
+      }
+
+      .reviewBody .ans {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .reviewBody .ans div {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        background: rgba(2, 10, 14, 0.42);
+      }
+
+      .teacherBtn {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 5;
+        opacity: 0.08;
+        filter: saturate(0.7);
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+
+      .teacherBtn:hover,
+      .teacherBtn:focus-within {
+        opacity: 0.82;
+        transform: translateY(-1px);
+      }
+
+      .teacherBtn button {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 12px;
+        border-radius: 999px;
+        border-color: rgba(238, 255, 250, 0.18);
+        background: rgba(2, 10, 14, 0.42);
+        font-family: var(--mono);
+        letter-spacing: 0.5px;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(6px);
+        padding: 18px;
+      }
+
+      .modal.show {
+        display: grid;
+        place-items: center;
+      }
+
+      .modalCard {
+        width: min(980px, 100%);
+        border-radius: var(--radius);
+        background: rgba(8, 16, 26, 0.92);
+        border: 1px solid rgba(68, 255, 230, 0.2);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+      }
+
+      .modalHead {
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid rgba(68, 255, 230, 0.14);
+      }
+
+      .modalHead .t {
+        font-weight: 900;
+        letter-spacing: 0.2px;
+      }
+
+      .modalBody {
+        padding: 14px 16px 16px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .dashGrid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .dashCard {
+        background: rgba(2, 10, 14, 0.55);
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        border-radius: var(--radius2);
+        padding: 12px 12px 10px;
+      }
+
+      .dashCard h4 {
+        margin: 0 0 8px;
+        font-family: var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.9px;
+        font-size: 12px;
+        color: rgba(68, 255, 230, 0.9);
+      }
+
+      .dashCard ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .live {
+        position: absolute;
+        left: -9999px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+
+      .bonusEmailWrap {
+        margin-top: 12px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(238, 255, 250, 0.16);
+        background: rgba(2, 10, 14, 0.55);
+      }
+
+      .mailBar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(238, 255, 250, 0.14);
+        background: rgba(4, 14, 20, 0.52);
+      }
+
+      .mailBar .left {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted2);
+        flex-wrap: wrap;
+      }
+
+      .mailDot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(238, 255, 250, 0.16);
+        background: rgba(238, 255, 250, 0.06);
+      }
+
+      .mailBody {
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .mailHeader {
+        display: grid;
+        gap: 8px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed rgba(238, 255, 250, 0.18);
+      }
+
+      .fromLine {
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 8px 12px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted2);
+      }
+
+      .fromLine strong {
+        color: rgba(238, 255, 250, 0.9);
+        font-weight: 840;
+      }
+
+      .mailSubject {
+        font-weight: 900;
+        font-size: 16px;
+        color: rgba(238, 255, 250, 0.92);
+      }
+
+      .mailContent {
+        color: rgba(238, 255, 250, 0.86);
+        line-height: 1.6;
+        font-size: 14px;
+      }
+
+      .ctaRow {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .fakeLink,
+      .attachment {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 14px;
+        padding: 12px 12px;
+        font-family: var(--mono);
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .fakeLink {
+        border: 1px solid rgba(68, 255, 230, 0.22);
+        background: rgba(4, 14, 20, 0.55);
+      }
+
+      .attachment {
+        border: 1px solid rgba(238, 255, 250, 0.14);
+        background: rgba(4, 14, 20, 0.45);
+      }
+
+      .clueFound {
+        border-color: rgba(69, 255, 152, 0.55) !important;
+        background: linear-gradient(180deg, rgba(69, 255, 152, 0.15), rgba(4, 14, 20, 0.55)) !important;
+        box-shadow: 0 0 0 1px rgba(69, 255, 152, 0.12) inset;
+      }
+
+      footer {
+        padding: 16px 18px 18px;
+        color: rgba(238, 255, 250, 0.55);
+        font-family: var(--mono);
+        font-size: 12px;
+        text-align: center;
+      }
+
+      @media (max-width: 920px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .resultsGrid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .choices {
+          grid-template-columns: 1fr;
+        }
+        .cardgrid {
+          grid-template-columns: 1fr;
+        }
+        .btnrow {
+          grid-template-columns: 1fr;
+        }
+        .progress {
+          width: 200px;
+        }
+        .dashGrid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="fx" aria-hidden="true"></div>
+    <div class="wrap">
+      <header>
+        <div class="topbar">
+          <div class="brand" aria-label="Application title">
+            <div class="sig">Case File</div>
+            <div class="title">Social Engineering Detective</div>
+          </div>
+          <div class="hud" aria-label="Game status">
+            <div class="pill" id="hudScore">Score: <strong>0</strong></div>
+            <div class="pill" id="hudQ">Question: <strong>0</strong>/<span id="hudTotal">0</span></div>
+            <div class="progress" aria-label="Progress"><div id="hudProg"></div></div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <div class="panel" role="application" aria-label="Social Engineering Detective game">
+          <div class="inner">
+            <div class="live" aria-live="polite" id="ariaLive"></div>
+
+            <section class="screen active" id="screenWelcome" aria-label="Welcome screen">
+              <div class="hero">
+                <div>
+                  <h1>Investigate the human hack.</h1>
+                  <p class="sub">Spot the trick, identify what they want, and pick the best defence. Built for GCSE Computer Science (AQA 8525 • 3.6.2.1).</p>
+                  <div class="actions" aria-label="Main actions">
+                    <div class="btnrow">
+                      <button class="btn-primary" id="btnGoLearn">Learning Screen</button>
+                      <button class="btn-primary" id="btnStartGame">Start Game</button>
+                    </div>
+                    <div class="btnrow">
+                      <button class="btn-ghost" id="btnBonus">Bonus: Spot the Clues</button>
+                      <button class="btn-danger" id="btnRestartFromWelcome">Restart / Reset</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="casefile" aria-label="Case file overview">
+                  <h3>Briefing</h3>
+                  <p>Each case has three decisions.</p>
+                  <ul class="learnlist">
+                    <li>Attack type</li>
+                    <li>Targeted information</li>
+                    <li>Best protection</li>
+                  </ul>
+                  <div class="kv">
+                    <div class="row"><span>Feedback</span><strong>Instant</strong></div>
+                    <div class="row"><span>Scoring</span><strong>3 points per case</strong></div>
+                    <div class="row"><span>Bonus</span><strong>Spot-the-clues mode</strong></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" id="screenLearn" aria-label="Learning screen">
+              <h2>Learning: Social Engineering (AQA 8525 • 3.6.2.1)</h2>
+              <p class="sub">Exam-friendly definitions plus prevention methods.</p>
+
+              <div class="cardgrid" aria-label="Learning topics">
+                <div class="card">
+                  <div class="tag">Social Engineering</div>
+                  <p><strong>Definition:</strong> the <strong>manipulation of people</strong> to obtain <strong>confidential information</strong> or access.</p>
+                  <p><strong>Key idea:</strong> attackers exploit trust, fear, urgency, or helpfulness instead of hacking code.</p>
+                  <ul class="learnlist">
+                    <li>Slow down and verify unusual requests.</li>
+                    <li>Use official channels and call-backs.</li>
+                    <li>Use MFA so a password alone isn’t enough.</li>
+                  </ul>
+                </div>
+                <div class="card">
+                  <div class="tag">Phishing</div>
+                  <p><strong>What it is:</strong> fake messages (email/text/DM) that try to trick you into clicking links, downloading files, or typing logins.</p>
+                  <ul class="learnlist">
+                    <li>Check sender and the real domain.</li>
+                    <li>Don’t log in via message links—type the official address yourself.</li>
+                    <li>Report suspicious messages.</li>
+                  </ul>
+                </div>
+                <div class="card">
+                  <div class="tag">Blagging (Pretexting)</div>
+                  <p><strong>What it is:</strong> someone invents a believable story (a <strong>pretext</strong>) to persuade you to reveal information or grant access.</p>
+                  <ul class="learnlist">
+                    <li>Verify identity (call-back to a trusted number).</li>
+                    <li>Never share passwords or one-time codes.</li>
+                    <li>Share the minimum information needed.</li>
+                  </ul>
+                </div>
+                <div class="card">
+                  <div class="tag">Shoulder Surfing</div>
+                  <p><strong>What it is:</strong> someone watches your screen/keyboard to steal information (PINs, passwords, private messages).</p>
+                  <ul class="learnlist">
+                    <li>Cover keypads/screens and angle away from others.</li>
+                    <li>Use privacy screen filters; avoid logging in in crowds.</li>
+                    <li>Lock devices when you step away.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="actions" style="margin-top: 14px">
+                <div class="btnrow">
+                  <button class="btn-primary" id="btnLearnToGame">Start Game</button>
+                  <button class="btn-ghost" id="btnLearnBack">Back to Welcome</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" id="screenGame" aria-label="Game screen">
+              <div class="gameTop">
+                <div>
+                  <h2 style="margin-bottom: 6px">Case Investigation</h2>
+                  <p class="sub">Read carefully. Each step locks after you answer.</p>
+                </div>
+                <div class="categoryChip" id="categoryChip">Category</div>
+              </div>
+
+              <div class="scenarioBox" aria-label="Scenario">
+                <div class="meta">
+                  <span id="scenarioMetaLeft">Source: —</span>
+                  <span id="scenarioMetaRight">Rule: verify</span>
+                </div>
+                <div class="scenarioTitle" id="scenarioTitle">—</div>
+                <div class="story" id="scenarioStory">—</div>
+              </div>
+
+              <div class="steps" aria-label="Answer steps">
+                <div class="step">
+                  <div class="stepHead">
+                    <div class="kicker">Step 1</div>
+                    <div class="status" id="statusAttack">Choose the attack type</div>
+                  </div>
+                  <div class="stepBody">
+                    <div class="choices" id="choicesAttack"></div>
+                    <div class="feedback" id="fbAttack">
+                      <div class="headline"><div class="label" id="fbAttackLabel">—</div><div class="pts" id="fbAttackPts">—</div></div>
+                      <div class="body" id="fbAttackBody">—</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="step">
+                  <div class="stepHead">
+                    <div class="kicker">Step 2</div>
+                    <div class="status" id="statusTarget">Identify the information being targeted</div>
+                  </div>
+                  <div class="stepBody">
+                    <div class="choices" id="choicesTarget"></div>
+                    <div class="feedback" id="fbTarget">
+                      <div class="headline"><div class="label" id="fbTargetLabel">—</div><div class="pts" id="fbTargetPts">—</div></div>
+                      <div class="body" id="fbTargetBody">—</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="step">
+                  <div class="stepHead">
+                    <div class="kicker">Step 3</div>
+                    <div class="status" id="statusProtect">Pick the best protection</div>
+                  </div>
+                  <div class="stepBody">
+                    <div class="choices" id="choicesProtect"></div>
+                    <div class="feedback" id="fbProtect">
+                      <div class="headline"><div class="label" id="fbProtectLabel">—</div><div class="pts" id="fbProtectPts">—</div></div>
+                      <div class="body" id="fbProtectBody">—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gameActions" aria-label="Game actions">
+                <div class="stageDots" aria-label="Step progress">
+                  <div class="dot on" id="dot1"></div>
+                  <div class="dot" id="dot2"></div>
+                  <div class="dot" id="dot3"></div>
+                  <div class="pill" id="ptsPossible">This case: <strong>0</strong>/3</div>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end">
+                  <button class="btn-ghost btn-small" id="btnQuitToWelcome">Quit to Welcome</button>
+                  <button class="btn-primary" id="btnNextCase" disabled>Next Case</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" id="screenEnd" aria-label="End screen">
+              <h2>Case Closed</h2>
+              <p class="sub">Final score, percentage, rating, and a review of incorrect answers.</p>
+
+              <div class="resultsGrid" aria-label="Results summary">
+                <div class="scoreRing">
+                  <div class="ring" id="ring">
+                    <div style="text-align: center">
+                      <div class="pct" id="finalPct">0%</div>
+                      <div class="small" id="finalPctSmall">based on core questions</div>
+                    </div>
+                  </div>
+                  <div class="rating" id="finalRating" style="margin-top: 12px">
+                    <div class="badge" id="ratingBadge"></div>
+                    <div id="ratingText">—</div>
+                  </div>
+                </div>
+                <div class="resultCard">
+                  <div class="line"><span>Core score</span><strong id="finalCoreScore">0</strong></div>
+                  <div class="line"><span>Core max</span><strong id="finalCoreMax">0</strong></div>
+                  <div class="line"><span>Bonus points</span><strong id="finalBonus">0</strong></div>
+                  <div class="line"><span>Total points</span><strong id="finalTotal">0</strong></div>
+                  <div class="line"><span>Questions attempted</span><strong id="finalAttempted">0</strong></div>
+                  <div class="actions" style="margin-top: 12px">
+                    <div class="btnrow">
+                      <button class="btn-primary" id="btnPlayAgain">Play Again</button>
+                      <button class="btn-ghost" id="btnEndToWelcome">Back to Welcome</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 14px">
+                <h3>Review Incorrect Answers</h3>
+                <p class="sub" id="reviewSub">—</p>
+                <div class="review" id="reviewList"></div>
+              </div>
+            </section>
+
+            <section class="screen" id="screenBonus" aria-label="Spot the clues mode">
+              <h2>Bonus Mode: Spot the Clues</h2>
+              <p class="sub">Click suspicious parts of this phishing email mockup. Find all clues to earn bonus points.</p>
+
+              <div class="cardgrid" style="margin-top: 12px">
+                <div class="card" aria-label="Instructions">
+                  <div class="tag">Instructions</div>
+                  <ul class="learnlist">
+                    <li>Tap/click anything suspicious: sender, link, wording, requests, attachments.</li>
+                    <li>Each correct clue is marked as found.</li>
+                    <li>Find all clues to earn a one-time bonus.</li>
+                  </ul>
+                  <div class="kv">
+                    <div class="row"><span>Clues found</span><strong id="bonusFound">0</strong>/<span id="bonusTotal">0</span></div>
+                    <div class="row"><span>Bonus</span><strong id="bonusValue">+0</strong> points</div>
+                    <div class="row"><span>Status</span><strong id="bonusStatus">Not completed</strong></div>
+                  </div>
+                  <div class="actions">
+                    <div class="btnrow">
+                      <button class="btn-primary" id="btnBonusToWelcome">Back to Welcome</button>
+                      <button class="btn-ghost" id="btnBonusReset">Reset Clues</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" aria-label="Clue list">
+                  <div class="tag">Clues Found</div>
+                  <p class="sub">Clues appear here as you find them.</p>
+                  <div id="bonusClueList" class="review" style="margin-top: 10px"></div>
+                </div>
+              </div>
+
+              <div class="bonusEmailWrap" aria-label="Phishing email mockup">
+                <div class="mailBar">
+                  <div class="left">
+                    <div class="mailDot"></div>
+                    <div class="mailDot"></div>
+                    <div class="mailDot"></div>
+                    <span>Mail Viewer</span><span>•</span><span>Inbox</span>
+                  </div>
+                  <div class="pill">Offline safe simulation</div>
+                </div>
+                <div class="mailBody">
+                  <div class="mailHeader">
+                    <div class="mailSubject clue" data-clue-id="subject-urgent">URGENT: Your account will be locked in 30 minutes</div>
+                    <div class="fromLine">
+                      <div>From</div>
+                      <div class="clue" data-clue-id="from-domain">
+                        <strong>Robux Support</strong> &lt;support@robIox-secure.com&gt;
+                        <div style="margin-top: 3px; color: rgba(238, 255, 250, 0.56)">Look closely: it uses a look‑alike character.</div>
+                      </div>
+                      <div>To</div>
+                      <div><strong>You</strong> &lt;student@schoolmail.example&gt;</div>
+                      <div>Date</div>
+                      <div>Today, 08:17</div>
+                    </div>
+                  </div>
+
+                  <div class="mailContent">
+                    Hi,<br /><br />
+                    We detected <span class="clue" data-clue-id="generic-greeting"><strong>unusual activity</strong></span> on your account. To stop items being removed, you must
+                    <span class="clue" data-clue-id="pressure-urgency"><strong>verify immediately</strong></span>.<br /><br />
+                    Click the secure link below and sign in. Then enter your password and the <span class="clue" data-clue-id="request-2fa"><strong>one-time code</strong></span> sent to your phone so we can “confirm it’s really you”.<br /><br />
+                    Thanks,<br />
+                    Support Team
+                  </div>
+
+                  <div class="ctaRow" aria-label="Clickable elements">
+                    <div class="fakeLink clue" role="button" tabindex="0" data-clue-id="link-mismatch">
+                      https://robux-support.example <span style="opacity: 0.65">→</span>
+                      <span style="color: rgba(255, 204, 86, 0.92)">robIox-secure.com/login</span>
+                    </div>
+                    <div class="attachment clue" role="button" tabindex="0" data-clue-id="attachment">Attachment: Account_Verification_Form.zip</div>
+                    <div class="fakeLink clue" role="button" tabindex="0" data-clue-id="reply-to">
+                      Reply to confirm: <span style="color: rgba(255, 204, 86, 0.92)">support.fast@robIox-secure.com</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <footer>Built for GCSE Computer Science (AQA 8525) • Social Engineering (3.6.2.1) • Runs offline in a browser</footer>
+    </div>
+
+    <div class="teacherBtn" aria-label="Teacher dashboard button"><button id="btnTeacher">Teacher Dashboard</button></div>
+
+    <div class="modal" id="teacherModal" role="dialog" aria-modal="true" aria-label="Teacher dashboard">
+      <div class="modalCard">
+        <div class="modalHead">
+          <div class="t">Teacher Dashboard</div>
+          <button class="btn-small btn-ghost" id="btnTeacherClose">Close</button>
+        </div>
+        <div class="modalBody" id="teacherBody">—</div>
+      </div>
+    </div>
+
+    <script id="scenarioData" type="application/json">
+      [
+        {
+          "id": "phish-01",
+          "category": "phishing",
+          "title": "School Email Login",
+          "source": "Email",
+          "story": "You get an email that looks like it’s from your school:\\n\\n“URGENT: Your school account will be disabled today. Click here to confirm your password now: school-support.example/verify”",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your school password", "Your home address", "Your timetable", "Your exam grade"],
+          "correctTargetedInfo": "Your school password",
+          "protectionOptions": ["Type the school website address yourself", "Reply with your password to prove it’s you", "Forward it to everyone so they can check", "Click the link quickly before the deadline"],
+          "correctProtection": "Type the school website address yourself",
+          "explanation": "This is phishing: a fake message trying to trick you into entering your login details. The attacker wants your school password. Prevention: don’t use the link—go to the real website/app yourself and report it."
+        },
+        {
+          "id": "phish-02",
+          "category": "phishing",
+          "title": "Free Skins Link",
+          "source": "Discord DM",
+          "story": "A DM says:\\n\\n“Yo, you won a free skin drop! Log in here to claim it before it expires: epic-free-skins.example”\\n\\nIt includes a fancy logo and loads of hype.",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your gaming account login", "Your friend’s phone number", "Your console serial number", "Your favourite game"],
+          "correctTargetedInfo": "Your gaming account login",
+          "protectionOptions": ["Check the official game site/app instead of the link", "Send your password so they can add the skin", "Use the same password so you don’t forget it", "Click the link and sign in straight away"],
+          "correctProtection": "Check the official game site/app instead of the link",
+          "explanation": "Phishing often targets gamers with ‘free rewards’. The goal is to steal your gaming login. Prevention: ignore the DM link and check rewards only through the official game/app; enable MFA."
+        },
+        {
+          "id": "phish-03",
+          "category": "phishing",
+          "title": "Bank Text Alert",
+          "source": "SMS",
+          "story": "You get a text:\\n\\n“Bank Alert: We blocked a £499 payment. If this wasn’t you, confirm your details at: bank-secure.example/stop”",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your bank card details", "Your shoe size", "Your streaming history", "Your PE grade"],
+          "correctTargetedInfo": "Your bank card details",
+          "protectionOptions": ["Call the bank using the number on the website/card", "Tap the link and enter details to be safe", "Send the code from your banking app by text", "Post a screenshot online to ask if it’s real"],
+          "correctProtection": "Call the bank using the number on the website/card",
+          "explanation": "This is phishing by text (smishing). It uses urgency to get you to type bank details or logins. Prevention: don’t use the link—contact the bank using a trusted number."
+        },
+        {
+          "id": "phish-04",
+          "category": "phishing",
+          "title": "Streaming ‘Refund’ Attachment",
+          "source": "Email",
+          "story": "An email says:\\n\\n“We accidentally charged you twice. Download the refund form and sign in to confirm your payment details.”\\n\\nThe attachment is called “RefundForm.zip”.",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your payment details", "Your art homework", "Your library book list", "Your music playlist"],
+          "correctTargetedInfo": "Your payment details",
+          "protectionOptions": ["Do not open it; check your account directly in the official app/site", "Open the zip because refunds always use forms", "Send your card number by email to speed it up", "Turn off antivirus so the file opens"],
+          "correctProtection": "Do not open it; check your account directly in the official app/site",
+          "explanation": "Phishing can use attachments too (sometimes to install malware). The attacker wants payment info. Prevention: avoid unexpected attachments; go to the official service directly."
+        },
+        {
+          "id": "phish-05",
+          "category": "phishing",
+          "title": "Coursework Feedback Link",
+          "source": "Email",
+          "story": "You receive:\\n\\n“New coursework feedback uploaded. View your file here.”\\n\\nThe link looks odd and asks you to log in again even though you’re already signed in.",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your school login", "Your lunch menu", "Your bus pass", "Your favourite teacher"],
+          "correctTargetedInfo": "Your school login",
+          "protectionOptions": ["Check with your teacher via Teams/in person before logging in", "Enter your password because it says ‘feedback’", "Send your password to a friend to test", "Ignore all school emails forever"],
+          "correctProtection": "Check with your teacher via Teams/in person before logging in",
+          "explanation": "This message impersonates a trusted source to steal your school login. Prevention: verify the request using a trusted channel and avoid logging in via unexpected links."
+        },
+        {
+          "id": "phish-06",
+          "category": "phishing",
+          "title": "Social Media ‘Copyright Strike’",
+          "source": "Instagram DM",
+          "story": "A DM claims:\\n\\n“Your account will be deleted for copyright. Appeal now: insta-appeal.example. Log in to confirm you own the account.”",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your social media password", "Your camera model", "Your pet’s name", "Your favourite song"],
+          "correctTargetedInfo": "Your social media password",
+          "protectionOptions": ["Check warnings inside the official app/settings", "Click the link because deletion is scary", "Reply with your password to prove ownership", "Turn off Wi‑Fi so it can’t delete you"],
+          "correctProtection": "Check warnings inside the official app/settings",
+          "explanation": "Phishers use fear and urgency. They want your login to take over the account. Prevention: check messages inside the official app and never log in via DM links."
+        },
+        {
+          "id": "phish-07",
+          "category": "phishing",
+          "title": "Missed Parcel Fee",
+          "source": "SMS",
+          "story": "Text message:\\n\\n“Missed delivery. Pay £1.49 to reschedule: parcel-redelivery.example”\\n\\nYou weren’t expecting a parcel, but your parents sometimes order things.",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your card details", "Your exam timetable", "Your school ID number", "Your wallpaper"],
+          "correctTargetedInfo": "Your card details",
+          "protectionOptions": ["Ask your parents and check the delivery company website directly", "Pay quickly; it’s only £1.49", "Send your card number to a friend to test", "Keep clicking until it works"],
+          "correctProtection": "Ask your parents and check the delivery company website directly",
+          "explanation": "This is smishing aiming to steal card details via a fake fee. Prevention: don’t use the link; verify through the official company site/app and confirm a parcel exists."
+        },
+        {
+          "id": "phish-08",
+          "category": "phishing",
+          "title": "‘New iPhone Winner’ Pop‑Up",
+          "source": "Website pop‑up",
+          "story": "A pop-up on a random site says:\\n\\n“CONGRATS! You are today’s winner. Confirm your Apple ID and password to claim.”\\n\\nIt tries to stop you closing the tab.",
+          "correctAttackType": "Phishing",
+          "targetedInfoOptions": ["Your Apple ID login", "Your screen time stats", "Your reading age", "Your Wi‑Fi name"],
+          "correctTargetedInfo": "Your Apple ID login",
+          "protectionOptions": ["Close the tab and don’t enter details", "Enter details because you might win", "Type your password twice for extra security", "Restart your phone to accept the prize"],
+          "correctProtection": "Close the tab and don’t enter details",
+          "explanation": "This is phishing using a fake prize to steal a login. Prevention: don’t enter details on pop-ups; close the page and stick to trusted websites."
+        },
+
+        {
+          "id": "blag-01",
+          "category": "blagging",
+          "title": "‘IT Support’ Call",
+          "source": "Phone call",
+          "story": "Someone calls and says:\\n\\n“Hi, I’m from school IT. We can see errors on your account. I just need your password to reset it for you.”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Your school password", "Your locker number", "Your favourite subject", "Your homework file name"],
+          "correctTargetedInfo": "Your school password",
+          "protectionOptions": ["Hang up and contact school IT using a known number", "Give the password because they sound confident", "Tell them your friend’s password instead", "Ask them to prove it by guessing your name"],
+          "correctProtection": "Hang up and contact school IT using a known number",
+          "explanation": "This is blagging/pretexting: they use a believable story to persuade you. They want your password. Prevention: never share passwords; verify identity via an official route (call-back)."
+        },
+        {
+          "id": "blag-02",
+          "category": "blagging",
+          "title": "‘Friend’s Parent’ Message",
+          "source": "WhatsApp",
+          "story": "You get a message:\\n\\n“Hi, it’s Jay’s mum. Jay lost their phone. Can you send me your 6‑digit code when it pops up? I need it to get back into Jay’s account.”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["A one-time verification code", "A screenshot of your timetable", "Your PE kit size", "Your game rank"],
+          "correctTargetedInfo": "A one-time verification code",
+          "protectionOptions": ["Do not share codes; contact Jay via another trusted method", "Send the code quickly to help", "Send your password instead; it’s easier", "Post the code in a group chat so Jay sees it"],
+          "correctProtection": "Do not share codes; contact Jay via another trusted method",
+          "explanation": "The attacker uses a story to get a one-time code (which can unlock an account). Prevention: never share verification codes and verify the person through a trusted channel."
+        },
+        {
+          "id": "blag-03",
+          "category": "blagging",
+          "title": "‘Bank Security’ in a Shop",
+          "source": "In person",
+          "story": "A stranger says in a shop:\\n\\n“I work for your bank’s fraud team. We’re investigating scams. Can you confirm the long number on your card and your postcode?”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Your card number and personal details", "Your shoe size", "Your favourite film", "Your school house"],
+          "correctTargetedInfo": "Your card number and personal details",
+          "protectionOptions": ["Refuse and contact the bank using official details", "Show the card because they said ‘fraud team’", "Give them your PIN so they can ‘verify’", "Hand them your phone so they can call for you"],
+          "correctProtection": "Refuse and contact the bank using official details",
+          "explanation": "This is pretexting: pretending to be bank staff to get confidential details. Prevention: refuse, and contact the bank through trusted contact information."
+        },
+        {
+          "id": "blag-04",
+          "category": "blagging",
+          "title": "‘Supply Teacher’ Laptop Login",
+          "source": "School corridor",
+          "story": "Someone you don’t recognise says:\\n\\n“I’m the new supply teacher. I can’t log into the projector. Can you quickly log in on this laptop so I can start the lesson?”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Your school login", "Your lunch PIN", "Your notes", "Your class list"],
+          "correctTargetedInfo": "Your school login",
+          "protectionOptions": ["Say no and direct them to school IT/staff", "Log in because it’s for a lesson", "Type your password slowly so they can see", "Write your login on a sticky note for them"],
+          "correctProtection": "Say no and direct them to school IT/staff",
+          "explanation": "This is pretexting: using a fake role to persuade you to give access. Prevention: don’t log in for others; refer them to official staff/IT processes."
+        },
+        {
+          "id": "blag-05",
+          "category": "blagging",
+          "title": "Giveaway ‘Verification’",
+          "source": "TikTok DM",
+          "story": "A creator messages:\\n\\n“You’ve been picked for the giveaway, but I have to verify you’re real. What’s your full name, date of birth and the email you used?”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Personal data for identity theft", "Your favourite emoji", "Your screen brightness level", "Your shoe brand"],
+          "correctTargetedInfo": "Personal data for identity theft",
+          "protectionOptions": ["Share as little as possible; verify the giveaway is real first", "Send everything; it’s the only way to win", "Send your password so they can confirm faster", "Turn your phone on airplane mode"],
+          "correctProtection": "Share as little as possible; verify the giveaway is real first",
+          "explanation": "This is pretexting: a fake ‘verification’ story to collect personal data. Prevention: verify legitimacy and don’t share unnecessary personal information."
+        },
+        {
+          "id": "blag-06",
+          "category": "blagging",
+          "title": "‘Delivery Driver’ at the Door",
+          "source": "In person",
+          "story": "Someone at your door says:\\n\\n“I’ve got a parcel for you but the scanner is down. Can you confirm your full name, phone number and postcode so I can leave it?”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Personal details", "Your maths homework answers", "Your favourite game", "Your music taste"],
+          "correctTargetedInfo": "Personal details",
+          "protectionOptions": ["Ask for a missed-delivery card and verify via official tracking", "Tell them everything so they can leave it", "Let them take a photo of your bank card", "Invite them in to use Wi‑Fi"],
+          "correctProtection": "Ask for a missed-delivery card and verify via official tracking",
+          "explanation": "Pretexting can happen face-to-face. They want personal info for scams. Prevention: verify through official delivery tracking and don’t give extra information at the door."
+        },
+        {
+          "id": "blag-07",
+          "category": "blagging",
+          "title": "Account Recovery ‘Helper’",
+          "source": "Gaming chat",
+          "story": "In a game chat someone says:\\n\\n“I can get your account back. Tell me your email and the answers to your security questions (first school/pet name). I’ll do the recovery for you.”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Security question answers", "Your controller brand", "Your screen resolution", "Your favourite map"],
+          "correctTargetedInfo": "Security question answers",
+          "protectionOptions": ["Use the official recovery process only", "Give answers; they’re being helpful", "Tell them your password too just in case", "Send a screenshot of your email inbox"],
+          "correctProtection": "Use the official recovery process only",
+          "explanation": "They use a helpful pretext to steal recovery details. Prevention: use official recovery tools and never share security answers, passwords, or codes."
+        },
+        {
+          "id": "blag-08",
+          "category": "blagging",
+          "title": "‘School Office’ Update Request",
+          "source": "Phone call",
+          "story": "A caller says:\\n\\n“This is the school office. We’re updating contact details. Can you confirm your home address and your parent/guardian’s phone number?”",
+          "correctAttackType": "Blagging (Pretexting)",
+          "targetedInfoOptions": ["Personal contact details", "Your art grade", "Your favourite snack", "Your PE timetable"],
+          "correctTargetedInfo": "Personal contact details",
+          "protectionOptions": ["Say you’ll call back using the school’s main number", "Tell them everything so it’s updated", "Send a photo of your ID", "Answer quickly because they said ‘office’"],
+          "correctProtection": "Say you’ll call back using the school’s main number",
+          "explanation": "This is pretexting: pretending to be the school office to collect personal details. Prevention: call back using a trusted number and share only what’s necessary."
+        },
+
+        {
+          "id": "ss-01",
+          "category": "shoulder_surfing",
+          "title": "Bus PIN Watcher",
+          "source": "Public transport",
+          "story": "On the bus, you type your phone PIN. A person behind you leans in and watches your screen, then quickly looks away when you turn around.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Your phone PIN", "Your shoe size", "Your browser theme", "Your ringtone"],
+          "correctTargetedInfo": "Your phone PIN",
+          "protectionOptions": ["Cover the screen/keypad and turn slightly away", "Type slower so it’s clearer", "Turn up the volume", "Use the same PIN on everything"],
+          "correctProtection": "Cover the screen/keypad and turn slightly away",
+          "explanation": "This is shoulder surfing: someone watches you enter a PIN. Prevention: cover the keypad/screen, angle it away, and use privacy screens or biometrics where appropriate."
+        },
+        {
+          "id": "ss-02",
+          "category": "shoulder_surfing",
+          "title": "Library Login Peek",
+          "source": "Library",
+          "story": "You’re logging into your email on a library computer. You notice someone at the next computer keeps glancing at your keyboard while you type.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Your email password", "Your essay topic", "Your printer choice", "Your mouse sensitivity"],
+          "correctTargetedInfo": "Your email password",
+          "protectionOptions": ["Shield the keyboard and avoid logging in on public PCs", "Keep typing; they’re probably bored", "Say your password out loud to confirm it", "Leave the computer logged in so you don’t retype"],
+          "correctProtection": "Shield the keyboard and avoid logging in on public PCs",
+          "explanation": "They may be trying to watch your password being typed. Prevention: cover the keyboard, log out, and avoid entering sensitive passwords on shared/public computers."
+        },
+        {
+          "id": "ss-03",
+          "category": "shoulder_surfing",
+          "title": "Café Banking Screen",
+          "source": "Café",
+          "story": "You open your banking app while waiting for a drink. A person at the next table is sitting at an angle where they can see your screen clearly.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Bank balance and details", "Your playlist", "Your lock screen photo", "Your steps count"],
+          "correctTargetedInfo": "Bank balance and details",
+          "protectionOptions": ["Close the app and wait until you’re somewhere private", "Turn the phone brighter so everyone can see", "Show them the screen to prove it’s yours", "Leave the app open on the table"],
+          "correctProtection": "Close the app and wait until you’re somewhere private",
+          "explanation": "Shoulder surfing can capture account numbers, balances, or personal info. Prevention: avoid viewing sensitive apps in public; use privacy filters and lock quickly."
+        },
+        {
+          "id": "ss-04",
+          "category": "shoulder_surfing",
+          "title": "Classroom Password Peek",
+          "source": "Classroom",
+          "story": "You log into a school website and a classmate says:\\n\\n“Wait, I saw what you typed. Was that your password?”\\n\\nThey laugh like it’s a joke.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Your school password", "Your pen colour", "Your homework title", "Your calculator model"],
+          "correctTargetedInfo": "Your school password",
+          "protectionOptions": ["Change the password and use a longer one / password manager", "Keep using it; it was only a joke", "Write it down bigger next time", "Tell everyone your password so it’s not secret"],
+          "correctProtection": "Change the password and use a longer one / password manager",
+          "explanation": "Even ‘joking’ can be a real attempt to capture your password. Prevention: change it, use a stronger password, and shield the keyboard/screen when typing."
+        },
+        {
+          "id": "ss-05",
+          "category": "shoulder_surfing",
+          "title": "ATM Shoulder Look",
+          "source": "ATM",
+          "story": "At an ATM, someone queues too close behind you. You notice them trying to look down at the keypad while you enter your PIN.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Your card PIN", "Your bank’s logo", "Your cash amount", "Your coat brand"],
+          "correctTargetedInfo": "Your card PIN",
+          "protectionOptions": ["Cover the keypad with your hand and ask for space", "Tell them your PIN so they stop guessing", "Type the PIN faster without covering", "Let them stand closer so the queue moves"],
+          "correctProtection": "Cover the keypad with your hand and ask for space",
+          "explanation": "This is classic shoulder surfing for a PIN. Prevention: cover the keypad, maintain personal space, and alert staff if someone is behaving suspiciously."
+        },
+        {
+          "id": "ss-06",
+          "category": "shoulder_surfing",
+          "title": "Changing Password in a Crowd",
+          "source": "Train station",
+          "story": "Your phone says “Password leaked” so you start changing your password while standing in a busy station. People are walking behind you and your screen is easy to see.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Your new password", "Your battery percentage", "Your wallpaper", "Your headphones brand"],
+          "correctTargetedInfo": "Your new password",
+          "protectionOptions": ["Wait until you’re somewhere private and use MFA", "Change it in public so it’s fixed instantly", "Say the password quietly while typing", "Use the shortest password possible"],
+          "correctProtection": "Wait until you’re somewhere private and use MFA",
+          "explanation": "Even good actions can be risky in public. Prevention: change passwords in private, shield the screen, and enable MFA so stolen passwords aren’t enough."
+        },
+        {
+          "id": "ss-07",
+          "category": "shoulder_surfing",
+          "title": "Friend Films Your Screen",
+          "source": "Social media",
+          "story": "A friend starts filming a TikTok behind you. Your screen (including a private chat and a login code notification) is visible in the video.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Private messages and codes", "Your camera lens", "Your screen size", "Your ringtone"],
+          "correctTargetedInfo": "Private messages and codes",
+          "protectionOptions": ["Ask them to stop/retake; hide notifications; turn screen away", "Carry on; it’s only a short clip", "Read the code out loud so it’s clear", "Share the video so more people can see"],
+          "correctProtection": "Ask them to stop/retake; hide notifications; turn screen away",
+          "explanation": "Shoulder surfing isn’t only strangers—it can happen via filming. Prevention: keep codes private, hide sensitive notifications, and control what’s on screen in public videos."
+        },
+        {
+          "id": "ss-08",
+          "category": "shoulder_surfing",
+          "title": "Exam Candidate Number Peek",
+          "source": "School hall",
+          "story": "You open a PDF called “Exam seating plan” that includes your candidate number. Someone nearby leans over and reads your screen.",
+          "correctAttackType": "Shoulder Surfing",
+          "targetedInfoOptions": ["Candidate number / personal info", "Your pencil case colour", "Your revision notes", "Your school logo"],
+          "correctTargetedInfo": "Candidate number / personal info",
+          "protectionOptions": ["Minimise it and view it somewhere private", "Zoom in so everyone can read it", "Leave it open on the desk", "Send a screenshot to random people"],
+          "correctProtection": "Minimise it and view it somewhere private",
+          "explanation": "Shoulder surfing can target any confidential information, not just passwords. Prevention: avoid viewing sensitive documents in crowded spaces and angle your device away."
+        },
+
+        {
+          "id": "decoy-01",
+          "category": "decoy",
+          "title": "Game Update Notes",
+          "source": "Official app",
+          "story": "Your game opens an official in-app message:\\n\\n“Update 2.4: bug fixes, new map rotation, balance changes.”\\n\\nNo links, no login requests.",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password", "Your bank card", "Your one-time code"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Read it and update via the official store", "Send your password to unlock the update", "Click random links in comments", "Turn off your account security"],
+          "correctProtection": "Read it and update via the official store",
+          "explanation": "This is not social engineering. It’s a normal in-app update notice that doesn’t ask for confidential information. Still be safe: only update through official app stores."
+        },
+        {
+          "id": "decoy-02",
+          "category": "decoy",
+          "title": "Teacher Reminder",
+          "source": "Class announcement",
+          "story": "Your teacher says:\\n\\n“Remember to bring your calculator tomorrow. Homework is due.”\\n\\nNo request for logins or personal data.",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password", "Your bank details", "Your verification code"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Just follow normal school routines", "Give your password so they know you listened", "Post your bank details to prove attendance", "Disable your phone lock"],
+          "correctProtection": "Just follow normal school routines",
+          "explanation": "This is a normal reminder, not manipulation to obtain confidential information."
+        },
+        {
+          "id": "decoy-03",
+          "category": "decoy",
+          "title": "Friend Asks for Notes",
+          "source": "Message",
+          "story": "A friend messages:\\n\\n“Can you send me the science notes from today? I was off sick.”\\n\\nThey’re not asking for passwords or codes.",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your login details", "Your card PIN", "Your verification code"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Share notes if you’re happy to", "Share your password instead", "Send your bank card photo", "Turn off phone security"],
+          "correctProtection": "Share notes if you’re happy to",
+          "explanation": "This is a reasonable request for schoolwork. Social engineering specifically involves manipulating someone to obtain confidential information or access."
+        },
+        {
+          "id": "decoy-04",
+          "category": "decoy",
+          "title": "Password Reset You Started",
+          "source": "Trusted app",
+          "story": "You tap “Forgot password” in a trusted app you opened yourself. The app says: “Enter the code we just sent to your email.”",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password to share with strangers", "Your bank details", "Your friend’s password"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Complete it inside the official app you opened", "Send the code to anyone who asks", "Post the code on social media", "Turn off MFA"],
+          "correctProtection": "Complete it inside the official app you opened",
+          "explanation": "You initiated this inside the official app, so it’s a normal security process. The key rule remains: never share one-time codes with other people."
+        },
+        {
+          "id": "decoy-05",
+          "category": "decoy",
+          "title": "Two‑Factor Prompt",
+          "source": "Phone security alert",
+          "story": "Your phone shows: “Sign-in attempt from a new device. Approve / Deny.”\\n\\nYou are not currently trying to sign in.",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password", "Your PIN", "Your postcode"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Tap Deny and change your password", "Tap Approve to be polite", "Send your password to find out who it is", "Ignore it forever"],
+          "correctProtection": "Tap Deny and change your password",
+          "explanation": "This is a security alert, not a social engineering trick. The correct response is to deny and secure your account."
+        },
+        {
+          "id": "decoy-06",
+          "category": "decoy",
+          "title": "Card Machine Decline",
+          "source": "Shop",
+          "story": "In a shop, your contactless payment declines. The cashier says: “It didn’t go through. Try chip and PIN.”",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password to hand over", "Your account login", "Your email security answers"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Pay normally and cover the keypad as usual", "Tell the cashier your PIN out loud", "Write your PIN on the receipt", "Hand over your phone unlocked"],
+          "correctProtection": "Pay normally and cover the keypad as usual",
+          "explanation": "This is normal retail behaviour. It’s not an invented story to obtain confidential information. Still cover your PIN to prevent shoulder surfing."
+        },
+        {
+          "id": "decoy-07",
+          "category": "decoy",
+          "title": "Official IT Maintenance Banner",
+          "source": "School intranet",
+          "story": "After logging into the school intranet normally, you see:\\n\\n“Planned maintenance tonight 7–8pm. Save your work.”",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password", "Your bank details", "Your verification code"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Save your work and log out when finished", "Email your password to IT", "Click random external links", "Turn off device lock"],
+          "correctProtection": "Save your work and log out when finished",
+          "explanation": "This is a legitimate notice inside a service you accessed normally. It isn’t trying to manipulate you into sharing confidential information."
+        },
+        {
+          "id": "decoy-08",
+          "category": "decoy",
+          "title": "Friend Gives Safety Advice",
+          "source": "Group chat",
+          "story": "A friend posts:\\n\\n“Reminder: don’t share passwords or codes with anyone. Too many accounts getting hacked.”",
+          "correctAttackType": "Not Social Engineering",
+          "targetedInfoOptions": ["Nothing confidential", "Your password", "Your card number", "Your one-time code"],
+          "correctTargetedInfo": "Nothing confidential",
+          "protectionOptions": ["Follow the advice and use MFA", "Share your password to prove you trust them", "Post your PIN for laughs", "Disable 2FA to reduce notifications"],
+          "correctProtection": "Follow the advice and use MFA",
+          "explanation": "This is anti-social-engineering advice. Social engineering requires manipulation to obtain confidential information or access."
+        }
+      ]
+    </script>
+
+    <script>
+      (() => {
+        "use strict";
+
+        /*
+          Social Engineering Detective
+          - Single-file offline web application (HTML/CSS/JS)
+          - GCSE Computer Science (AQA 8525) 3.6.2.1 Social engineering
+          - No external libraries
+        */
+
+        const ATTACK_TYPES = ["Phishing", "Blagging (Pretexting)", "Shoulder Surfing", "Not Social Engineering"];
+
+        const CATEGORY_LABELS = {
+          phishing: "Phishing",
+          blagging: "Blagging / Pretexting",
+          shoulder_surfing: "Shoulder Surfing",
+          decoy: "Decoy (Not Social Engineering)",
+        };
+
+        const AQA_MAPPING = [
+          "Define social engineering as manipulation of people to obtain confidential information",
+          "Identify phishing",
+          "Identify blagging (pretexting)",
+          "Identify shoulder surfing (shouldering)",
+          "Describe prevention methods for each attack",
+        ];
+
+        const LEARNING_OBJECTIVES = [
+          "Define social engineering",
+          "Understand it is manipulation of people to obtain confidential information",
+          "Identify and explain phishing",
+          "Identify and explain blagging (pretexting)",
+          "Identify and explain shoulder surfing",
+          "Describe how each attack can be prevented",
+        ];
+
+        const BONUS_POINTS = 10;
+
+        const loadScenarios = () => {
+          const el = document.getElementById("scenarioData");
+          if (!el) return [];
+          try {
+            const parsed = JSON.parse(el.textContent || "[]");
+            if (!Array.isArray(parsed)) return [];
+            return parsed;
+          } catch {
+            return [];
+          }
+        };
+
+        const SCENARIOS = loadScenarios();
+
+        const dom = (() => {
+          const byId = (id) => document.getElementById(id);
+          return {
+            screens: {
+              welcome: byId("screenWelcome"),
+              learn: byId("screenLearn"),
+              game: byId("screenGame"),
+              end: byId("screenEnd"),
+              bonus: byId("screenBonus"),
+            },
+            hudScore: byId("hudScore"),
+            hudQ: byId("hudQ"),
+            hudTotal: byId("hudTotal"),
+            hudProg: byId("hudProg"),
+            ariaLive: byId("ariaLive"),
+
+            btnGoLearn: byId("btnGoLearn"),
+            btnStartGame: byId("btnStartGame"),
+            btnBonus: byId("btnBonus"),
+            btnRestartFromWelcome: byId("btnRestartFromWelcome"),
+            btnLearnToGame: byId("btnLearnToGame"),
+            btnLearnBack: byId("btnLearnBack"),
+            btnQuitToWelcome: byId("btnQuitToWelcome"),
+            btnNextCase: byId("btnNextCase"),
+            btnPlayAgain: byId("btnPlayAgain"),
+            btnEndToWelcome: byId("btnEndToWelcome"),
+
+            categoryChip: byId("categoryChip"),
+            scenarioMetaLeft: byId("scenarioMetaLeft"),
+            scenarioMetaRight: byId("scenarioMetaRight"),
+            scenarioTitle: byId("scenarioTitle"),
+            scenarioStory: byId("scenarioStory"),
+
+            statusAttack: byId("statusAttack"),
+            statusTarget: byId("statusTarget"),
+            statusProtect: byId("statusProtect"),
+
+            choicesAttack: byId("choicesAttack"),
+            choicesTarget: byId("choicesTarget"),
+            choicesProtect: byId("choicesProtect"),
+
+            fbAttack: byId("fbAttack"),
+            fbTarget: byId("fbTarget"),
+            fbProtect: byId("fbProtect"),
+
+            fbAttackLabel: byId("fbAttackLabel"),
+            fbTargetLabel: byId("fbTargetLabel"),
+            fbProtectLabel: byId("fbProtectLabel"),
+
+            fbAttackPts: byId("fbAttackPts"),
+            fbTargetPts: byId("fbTargetPts"),
+            fbProtectPts: byId("fbProtectPts"),
+
+            fbAttackBody: byId("fbAttackBody"),
+            fbTargetBody: byId("fbTargetBody"),
+            fbProtectBody: byId("fbProtectBody"),
+
+            dot1: byId("dot1"),
+            dot2: byId("dot2"),
+            dot3: byId("dot3"),
+            ptsPossible: byId("ptsPossible"),
+
+            finalPct: byId("finalPct"),
+            finalCoreScore: byId("finalCoreScore"),
+            finalCoreMax: byId("finalCoreMax"),
+            finalBonus: byId("finalBonus"),
+            finalTotal: byId("finalTotal"),
+            finalAttempted: byId("finalAttempted"),
+            ratingText: byId("ratingText"),
+            ratingBadge: byId("ratingBadge"),
+            ring: byId("ring"),
+            reviewList: byId("reviewList"),
+            reviewSub: byId("reviewSub"),
+
+            btnTeacher: byId("btnTeacher"),
+            teacherModal: byId("teacherModal"),
+            btnTeacherClose: byId("btnTeacherClose"),
+            teacherBody: byId("teacherBody"),
+
+            btnBonusToWelcome: byId("btnBonusToWelcome"),
+            btnBonusReset: byId("btnBonusReset"),
+            bonusFound: byId("bonusFound"),
+            bonusTotal: byId("bonusTotal"),
+            bonusValue: byId("bonusValue"),
+            bonusStatus: byId("bonusStatus"),
+            bonusClueList: byId("bonusClueList"),
+          };
+        })();
+
+        const audio = (() => {
+          let ctx = null;
+          const ensure = () => {
+            if (ctx) return ctx;
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            ctx = new Ctx();
+            return ctx;
+          };
+          const beep = ({ type = "sine", freq = 440, dur = 0.12, gain = 0.08, bendTo = null }) => {
+            const c = ensure();
+            if (!c) return;
+            if (c.state === "suspended") c.resume().catch(() => {});
+            const t0 = c.currentTime;
+            const osc = c.createOscillator();
+            const g = c.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, t0);
+            if (bendTo) osc.frequency.exponentialRampToValueAtTime(bendTo, t0 + dur);
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            osc.connect(g);
+            g.connect(c.destination);
+            osc.start(t0);
+            osc.stop(t0 + dur + 0.02);
+          };
+          const click = () => beep({ type: "triangle", freq: 520, dur: 0.055, gain: 0.06, bendTo: 420 });
+          const good = () => {
+            beep({ type: "sine", freq: 660, dur: 0.11, gain: 0.08, bendTo: 990 });
+            setTimeout(() => beep({ type: "sine", freq: 880, dur: 0.1, gain: 0.06, bendTo: 1320 }), 70);
+          };
+          const bad = () => beep({ type: "sawtooth", freq: 220, dur: 0.16, gain: 0.06, bendTo: 140 });
+          const next = () => beep({ type: "square", freq: 440, dur: 0.08, gain: 0.05, bendTo: 660 });
+          const bonus = () => {
+            beep({ type: "sine", freq: 523.25, dur: 0.1, gain: 0.06, bendTo: 783.99 });
+            setTimeout(() => beep({ type: "sine", freq: 659.25, dur: 0.1, gain: 0.06, bendTo: 987.77 }), 70);
+            setTimeout(() => beep({ type: "sine", freq: 783.99, dur: 0.12, gain: 0.07, bendTo: 1174.66 }), 140);
+          };
+          return { click, good, bad, next, bonus };
+        })();
+
+        const util = {
+          shuffle(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+          },
+          clamp(n, min, max) {
+            return Math.max(min, Math.min(max, n));
+          },
+          byId(id) {
+            return SCENARIOS.find((s) => s.id === id) || null;
+          },
+          escapeHtml(txt) {
+            return String(txt).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+          },
+        };
+
+        const state = (() => {
+          const initial = () => ({
+            mode: "welcome",
+            deck: [],
+            index: 0,
+            stage: 1,
+            coreScore: 0,
+            bonusScore: 0,
+            answers: {},
+            missed: [],
+            visitedLearn: false,
+            categoriesSeen: new Set(),
+            bonus: {
+              foundClues: new Set(),
+              awarded: false,
+            },
+          });
+          let s = initial();
+          return {
+            get: () => s,
+            resetAll: () => {
+              s = initial();
+            },
+            newGame: () => {
+              s.deck = util.shuffle(SCENARIOS.map((x) => x.id));
+              s.index = 0;
+              s.stage = 1;
+              s.coreScore = 0;
+              s.answers = {};
+              s.missed = [];
+              s.categoriesSeen = new Set();
+            },
+            setMode: (mode) => {
+              s.mode = mode;
+            },
+            markLearnVisited: () => {
+              s.visitedLearn = true;
+            },
+            currentScenario: () => {
+              if (s.index < 0 || s.index >= s.deck.length) return null;
+              return util.byId(s.deck[s.index]);
+            },
+            advanceScenario: () => {
+              s.index += 1;
+              s.stage = 1;
+            },
+            setStage: (n) => {
+              s.stage = n;
+            },
+            addCore: (points) => {
+              s.coreScore += points;
+            },
+            addBonusOnce: (points) => {
+              if (s.bonus.awarded) return false;
+              s.bonus.awarded = true;
+              s.bonusScore += points;
+              return true;
+            },
+            setAnswer: (scenarioId, patch) => {
+              s.answers[scenarioId] = { ...(s.answers[scenarioId] || {}), ...patch };
+            },
+            markMissed: (scenarioId) => {
+              if (!s.missed.includes(scenarioId)) s.missed.push(scenarioId);
+            },
+            seeCategory: (categoryKey) => {
+              s.categoriesSeen.add(categoryKey);
+            },
+            resetBonus: () => {
+              s.bonus.foundClues = new Set();
+              s.bonus.awarded = false;
+              s.bonusScore = 0;
+            },
+          };
+        })();
+
+        const ui = (() => {
+          const showScreen = (key) => {
+            Object.values(dom.screens).forEach((el) => el.classList.remove("active"));
+            dom.screens[key].classList.add("active");
+            state.setMode(key);
+            renderHud();
+          };
+
+          const say = (msg) => {
+            dom.ariaLive.textContent = msg;
+          };
+
+          const renderHud = () => {
+            const s = state.get();
+            const totalQ = s.deck.length || SCENARIOS.length || 0;
+            dom.hudTotal.textContent = String(totalQ);
+            const shownIndex = s.mode === "game" ? s.index + 1 : 0;
+            dom.hudQ.innerHTML = `Question: <strong>${shownIndex}</strong>/<span id="hudTotal">${totalQ}</span>`;
+            dom.hudScore.innerHTML = `Score: <strong>${s.coreScore + s.bonusScore}</strong>`;
+            const prog = s.mode === "game" && totalQ > 0 ? (s.index / totalQ) * 100 : 0;
+            dom.hudProg.style.width = `${util.clamp(prog, 0, 100).toFixed(2)}%`;
+          };
+
+          const buildChoiceButtons = (container, options, { group, locked, selectedValue }) => {
+            container.innerHTML = "";
+            options.forEach((opt) => {
+              const btn = document.createElement("button");
+              btn.className = "choice";
+              btn.type = "button";
+              btn.textContent = opt;
+              btn.dataset.group = group;
+              btn.dataset.value = opt;
+              btn.dataset.selected = selectedValue === opt ? "true" : "false";
+              btn.setAttribute("aria-pressed", selectedValue === opt ? "true" : "false");
+              if (locked) btn.setAttribute("disabled", "disabled");
+              container.appendChild(btn);
+            });
+          };
+
+          const clearFeedback = (fb) => {
+            fb.classList.remove("show", "good", "bad");
+          };
+
+          const setFeedback = (fb, { good, label, ptsText, body }) => {
+            fb.classList.remove("good", "bad");
+            fb.classList.add("show", good ? "good" : "bad");
+            fb.querySelector(".label").textContent = label;
+            fb.querySelector(".pts").textContent = ptsText;
+            fb.querySelector(".body").textContent = body;
+          };
+
+          const setDots = ({ stage, done1, done2, done3 }) => {
+            const dots = [dom.dot1, dom.dot2, dom.dot3];
+            dots.forEach((d) => d.classList.remove("on", "done"));
+            const doneFlags = [done1, done2, done3];
+            doneFlags.forEach((isDone, i) => {
+              if (isDone) dots[i].classList.add("done");
+            });
+            const activeIndex = Math.max(0, Math.min(2, stage - 1));
+            if (!doneFlags[activeIndex]) dots[activeIndex].classList.add("on");
+          };
+
+          return { showScreen, say, renderHud, buildChoiceButtons, clearFeedback, setFeedback, setDots };
+        })();
+
+        const game = (() => {
+          const maxCorePoints = () => SCENARIOS.length * 3;
+
+          const ratingForPct = (pct) => {
+            if (pct >= 90) return { text: "Security Expert", color: "rgba(69, 255, 152, 0.9)" };
+            if (pct >= 75) return { text: "Cyber Analyst", color: "rgba(68, 255, 230, 0.9)" };
+            if (pct >= 60) return { text: "Security Trainee", color: "rgba(255, 204, 86, 0.9)" };
+            return { text: "Easy Target", color: "rgba(255, 77, 103, 0.9)" };
+          };
+
+          const resetCaseUI = () => {
+            dom.statusAttack.textContent = "Choose the attack type";
+            dom.statusTarget.textContent = "Complete step 1 to unlock";
+            dom.statusProtect.textContent = "Complete step 2 to unlock";
+            ui.clearFeedback(dom.fbAttack);
+            ui.clearFeedback(dom.fbTarget);
+            ui.clearFeedback(dom.fbProtect);
+            dom.btnNextCase.disabled = true;
+            ui.setDots({ stage: 1, done1: false, done2: false, done3: false });
+            dom.ptsPossible.innerHTML = `This case: <strong>0</strong>/3`;
+          };
+
+          const decorateLockedChoices = (container, chosen, correct) => {
+            const btns = Array.from(container.querySelectorAll("button.choice"));
+            btns.forEach((b) => {
+              b.classList.remove("good", "bad");
+              const v = b.dataset.value;
+              if (v === correct) b.classList.add("good");
+              if (v === chosen && chosen !== correct) b.classList.add("bad");
+            });
+          };
+
+          const buildStepFeedback = ({ scenario, step, chosen, alreadyLocked }) => {
+            const stepMap = {
+              attack: { correct: scenario.correctAttackType, label: "Attack Type" },
+              target: { correct: scenario.correctTargetedInfo, label: "Targeted Information" },
+              protect: { correct: scenario.correctProtection, label: "Best Protection" },
+            };
+            const ref = stepMap[step];
+            const ok = chosen === ref.correct;
+            const label = ok ? `Correct — ${ref.label}` : `Incorrect — ${ref.label}`;
+            const ptsText = alreadyLocked ? "Locked" : ok ? "+1 point" : "+0 points";
+            const body = ok ? `Good catch. ${scenario.explanation}` : `Correct answer: "${ref.correct}". ${scenario.explanation}`;
+            return { good: ok, label, ptsText, body };
+          };
+
+          const renderCase = () => {
+            const s = state.get();
+            const scenario = state.currentScenario();
+            if (!scenario) return;
+
+            state.seeCategory(scenario.category);
+
+            dom.categoryChip.textContent = CATEGORY_LABELS[scenario.category] || "—";
+            dom.scenarioMetaLeft.textContent = `Source: ${scenario.source || "—"}`;
+            dom.scenarioMetaRight.textContent = "Rule: verify before you trust";
+            dom.scenarioTitle.textContent = scenario.title || "—";
+            dom.scenarioStory.textContent = scenario.story || "—";
+
+            const ans = s.answers[scenario.id] || {};
+            const done1 = typeof ans.attackCorrect === "boolean";
+            const done2 = typeof ans.targetCorrect === "boolean";
+            const done3 = typeof ans.protectCorrect === "boolean";
+
+            ui.setDots({ stage: s.stage, done1, done2, done3 });
+
+            const caseScore = (ans.attackCorrect ? 1 : 0) + (ans.targetCorrect ? 1 : 0) + (ans.protectCorrect ? 1 : 0);
+            dom.ptsPossible.innerHTML = `This case: <strong>${caseScore}</strong>/3`;
+
+            ui.buildChoiceButtons(dom.choicesAttack, ATTACK_TYPES, {
+              group: "attack",
+              locked: done1,
+              selectedValue: ans.chosenAttackType || null,
+            });
+            ui.buildChoiceButtons(dom.choicesTarget, scenario.targetedInfoOptions || [], {
+              group: "target",
+              locked: !done1 || done2,
+              selectedValue: ans.chosenTargetedInfo || null,
+            });
+            ui.buildChoiceButtons(dom.choicesProtect, scenario.protectionOptions || [], {
+              group: "protect",
+              locked: !done2 || done3,
+              selectedValue: ans.chosenProtection || null,
+            });
+
+            if (done1) {
+              dom.statusAttack.textContent = "Locked";
+              decorateLockedChoices(dom.choicesAttack, ans.chosenAttackType, scenario.correctAttackType);
+              if (!dom.fbAttack.classList.contains("show")) ui.setFeedback(dom.fbAttack, buildStepFeedback({ scenario, step: "attack", chosen: ans.chosenAttackType, alreadyLocked: true }));
+            }
+            if (done2) {
+              dom.statusTarget.textContent = "Locked";
+              decorateLockedChoices(dom.choicesTarget, ans.chosenTargetedInfo, scenario.correctTargetedInfo);
+              if (!dom.fbTarget.classList.contains("show")) ui.setFeedback(dom.fbTarget, buildStepFeedback({ scenario, step: "target", chosen: ans.chosenTargetedInfo, alreadyLocked: true }));
+            } else {
+              dom.statusTarget.textContent = done1 ? "Identify the information being targeted" : "Complete step 1 to unlock";
+            }
+            if (done3) {
+              dom.statusProtect.textContent = "Locked";
+              decorateLockedChoices(dom.choicesProtect, ans.chosenProtection, scenario.correctProtection);
+              if (!dom.fbProtect.classList.contains("show")) ui.setFeedback(dom.fbProtect, buildStepFeedback({ scenario, step: "protect", chosen: ans.chosenProtection, alreadyLocked: true }));
+            } else {
+              dom.statusProtect.textContent = done2 ? "Pick the best protection" : "Complete step 2 to unlock";
+            }
+
+            dom.btnNextCase.disabled = !(done1 && done2 && done3);
+            ui.renderHud();
+          };
+
+          const handleChoose = (btn) => {
+            if (!btn || btn.hasAttribute("disabled")) return;
+            const s = state.get();
+            const scenario = state.currentScenario();
+            if (!scenario) return;
+
+            const group = btn.dataset.group;
+            const value = btn.dataset.value;
+            audio.click();
+
+            const container = btn.parentElement;
+            Array.from(container.querySelectorAll("button.choice")).forEach((b) => {
+              b.dataset.selected = b === btn ? "true" : "false";
+              b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+            });
+
+            if (group === "attack") {
+              const ok = value === scenario.correctAttackType;
+              state.setAnswer(scenario.id, { chosenAttackType: value, attackCorrect: ok });
+              if (ok) state.addCore(1);
+              if (!ok) state.markMissed(scenario.id);
+              ui.setFeedback(dom.fbAttack, buildStepFeedback({ scenario, step: "attack", chosen: value, alreadyLocked: false }));
+              ui.say(ok ? "Correct attack type." : "Incorrect attack type.");
+              ok ? audio.good() : audio.bad();
+              state.setStage(2);
+              renderCase();
+              return;
+            }
+
+            if (group === "target") {
+              const ans = s.answers[scenario.id] || {};
+              if (typeof ans.attackCorrect !== "boolean") return;
+              const ok = value === scenario.correctTargetedInfo;
+              state.setAnswer(scenario.id, { chosenTargetedInfo: value, targetCorrect: ok });
+              if (ok) state.addCore(1);
+              if (!ok) state.markMissed(scenario.id);
+              ui.setFeedback(dom.fbTarget, buildStepFeedback({ scenario, step: "target", chosen: value, alreadyLocked: false }));
+              ui.say(ok ? "Correct targeted information." : "Incorrect targeted information.");
+              ok ? audio.good() : audio.bad();
+              state.setStage(3);
+              renderCase();
+              return;
+            }
+
+            if (group === "protect") {
+              const ans = s.answers[scenario.id] || {};
+              if (typeof ans.targetCorrect !== "boolean") return;
+              const ok = value === scenario.correctProtection;
+              state.setAnswer(scenario.id, { chosenProtection: value, protectCorrect: ok });
+              if (ok) state.addCore(1);
+              if (!ok) state.markMissed(scenario.id);
+              ui.setFeedback(dom.fbProtect, buildStepFeedback({ scenario, step: "protect", chosen: value, alreadyLocked: false }));
+              ui.say(ok ? "Correct protection method." : "Incorrect protection method.");
+              ok ? audio.good() : audio.bad();
+              state.setStage(3);
+              renderCase();
+              return;
+            }
+          };
+
+          const renderReview = () => {
+            const s = state.get();
+            const missed = s.missed.slice();
+            dom.reviewList.innerHTML = "";
+            if (missed.length === 0) {
+              dom.reviewSub.textContent = "No incorrect answers. That’s a clean investigation.";
+              const d = document.createElement("div");
+              d.className = "card";
+              d.innerHTML = `<div class="tag">Perfect Run</div><p class="sub" style="margin:0">You correctly identified all three parts of every scenario.</p>`;
+              dom.reviewList.appendChild(d);
+              return;
+            }
+            dom.reviewSub.textContent = `You had ${missed.length} scenario(s) with at least one incorrect step. Expand each one to revise.`;
+            missed.forEach((id) => {
+              const scenario = util.byId(id);
+              const ans = s.answers[id] || {};
+              const wrongSteps = [];
+              if (ans.attackCorrect === false) wrongSteps.push("Attack type");
+              if (ans.targetCorrect === false) wrongSteps.push("Target info");
+              if (ans.protectCorrect === false) wrongSteps.push("Protection");
+              const summaryRight = wrongSteps.length ? `Missed: ${wrongSteps.join(", ")}` : "Review";
+              const el = document.createElement("details");
+              el.className = "reviewItem";
+              el.innerHTML =
+                `<summary><span>${util.escapeHtml(scenario.title)}</span><span style="font-family:var(--mono);color:rgba(255,204,86,0.9);font-size:12px">${util.escapeHtml(summaryRight)}</span></summary>` +
+                `<div class="reviewBody">` +
+                `<div class="mini">Scenario</div>` +
+                `<div style="white-space:pre-wrap">${util.escapeHtml(scenario.story)}</div>` +
+                `<div class="mini">Your answers vs correct</div>` +
+                `<div class="ans">` +
+                `<div><strong>Attack type:</strong> ${util.escapeHtml(ans.chosenAttackType || "—")} <span style="opacity:.7">/ correct: ${util.escapeHtml(scenario.correctAttackType)}</span></div>` +
+                `<div><strong>Targeted info:</strong> ${util.escapeHtml(ans.chosenTargetedInfo || "—")} <span style="opacity:.7">/ correct: ${util.escapeHtml(scenario.correctTargetedInfo)}</span></div>` +
+                `<div><strong>Protection:</strong> ${util.escapeHtml(ans.chosenProtection || "—")} <span style="opacity:.7">/ correct: ${util.escapeHtml(scenario.correctProtection)}</span></div>` +
+                `</div>` +
+                `<div class="mini">Explanation</div>` +
+                `<div>${util.escapeHtml(scenario.explanation)}</div>` +
+                `</div>`;
+              dom.reviewList.appendChild(el);
+            });
+          };
+
+          const endGame = () => {
+            const s = state.get();
+            const coreMax = maxCorePoints();
+            const pct = coreMax === 0 ? 0 : Math.round((s.coreScore / coreMax) * 100);
+            const rating = ratingForPct(pct);
+
+            dom.finalPct.textContent = `${pct}%`;
+            dom.finalCoreScore.textContent = String(s.coreScore);
+            dom.finalCoreMax.textContent = String(coreMax);
+            dom.finalBonus.textContent = String(s.bonusScore);
+            dom.finalTotal.textContent = String(s.coreScore + s.bonusScore);
+            dom.finalAttempted.textContent = String(SCENARIOS.length);
+
+            dom.ratingText.textContent = rating.text;
+            dom.ratingBadge.style.background = rating.color;
+            dom.ratingBadge.style.boxShadow = `0 0 18px ${rating.color}`;
+
+            const ringColor = rating.color;
+            dom.ring.style.background =
+              `radial-gradient(circle at 50% 50%, rgba(2, 10, 14, 0.95) 58%, transparent 59%), ` +
+              `conic-gradient(from 180deg, ${ringColor} ${util.clamp(pct, 0, 100) * 3.6}deg, rgba(255, 77, 103, 0.08) 0deg)`;
+
+            renderReview();
+            ui.showScreen("end");
+            ui.say(`Game finished. Final percentage ${pct} percent.`);
+            ui.renderHud();
+          };
+
+          const nextCase = () => {
+            const s = state.get();
+            const scenario = state.currentScenario();
+            if (!scenario) return;
+            const ans = s.answers[scenario.id] || {};
+            if (!(typeof ans.attackCorrect === "boolean" && typeof ans.targetCorrect === "boolean" && typeof ans.protectCorrect === "boolean")) return;
+            audio.next();
+            state.advanceScenario();
+            if (state.get().index >= state.get().deck.length) {
+              endGame();
+              return;
+            }
+            resetCaseUI();
+            renderCase();
+          };
+
+          const startGame = () => {
+            state.newGame();
+            ui.showScreen("game");
+            resetCaseUI();
+            renderCase();
+            ui.say("Game started.");
+          };
+
+          return { startGame, renderCase, handleChoose, nextCase, endGame, maxCorePoints };
+        })();
+
+        const bonus = (() => {
+          const CLUES = [
+            { id: "subject-urgent", label: "Urgent threat/pressure in the subject line (panic + rush)." },
+            { id: "from-domain", label: "Look‑alike sender domain (robIox vs roblox) to fool you." },
+            { id: "generic-greeting", label: "Vague ‘unusual activity’ wording with no specific details." },
+            { id: "pressure-urgency", label: "Time pressure: ‘verify immediately’ / ‘30 minutes’." },
+            { id: "request-2fa", label: "Asks for a one‑time code (real companies never ask you to share this)." },
+            { id: "link-mismatch", label: "Link text vs destination don’t match (misleading URL)." },
+            { id: "attachment", label: "Suspicious attachment (zip) often used for malware." },
+            { id: "reply-to", label: "Tries to move you to a suspicious email address." },
+          ];
+
+          const clearFoundStyles = () => {
+            document.querySelectorAll(".clue").forEach((el) => el.classList.remove("clueFound"));
+          };
+
+          const markFoundStyle = (id) => {
+            document.querySelectorAll(`.clue[data-clue-id="${CSS.escape(id)}"]`).forEach((el) => el.classList.add("clueFound"));
+          };
+
+          const render = () => {
+            const s = state.get();
+            dom.bonusTotal.textContent = String(CLUES.length);
+            dom.bonusValue.textContent = `+${BONUS_POINTS}`;
+            dom.bonusFound.textContent = String(s.bonus.foundClues.size);
+            dom.bonusStatus.textContent = s.bonus.awarded ? "Completed (bonus awarded)" : s.bonus.foundClues.size === CLUES.length ? "All clues found" : "Not completed";
+
+            dom.bonusClueList.innerHTML = "";
+            const foundIds = s.bonus.foundClues;
+            if (foundIds.size === 0) {
+              const d = document.createElement("div");
+              d.className = "card";
+              d.style.margin = "0";
+              d.innerHTML = `<div class="tag">No clues yet</div><p class="sub" style="margin:0">Start clicking suspicious parts of the email.</p>`;
+              dom.bonusClueList.appendChild(d);
+              return;
+            }
+            CLUES.forEach((c) => {
+              if (!foundIds.has(c.id)) return;
+              const d = document.createElement("div");
+              d.className = "card";
+              d.style.margin = "0";
+              d.innerHTML = `<div class="tag">Clue Found</div><p class="sub" style="margin:0">${util.escapeHtml(c.label)}</p>`;
+              dom.bonusClueList.appendChild(d);
+            });
+          };
+
+          const tryFindClue = (clueId) => {
+            const s = state.get();
+            if (s.bonus.foundClues.has(clueId)) return;
+            s.bonus.foundClues.add(clueId);
+            markFoundStyle(clueId);
+            audio.good();
+            ui.say("Clue found.");
+
+            if (s.bonus.foundClues.size === CLUES.length) {
+              const awarded = state.addBonusOnce(BONUS_POINTS);
+              if (awarded) audio.bonus();
+              ui.say(awarded ? "All clues found. Bonus awarded." : "All clues found.");
+            }
+            render();
+            ui.renderHud();
+          };
+
+          const enter = () => {
+            ui.showScreen("bonus");
+            clearFoundStyles();
+            state.get().bonus.foundClues.forEach((id) => markFoundStyle(id));
+            render();
+            ui.say("Bonus mode opened.");
+          };
+
+          const reset = () => {
+            state.resetBonus();
+            clearFoundStyles();
+            render();
+            ui.renderHud();
+          };
+
+          const wire = () => {
+            document.addEventListener("click", (e) => {
+              const t = e.target;
+              if (!(t instanceof HTMLElement)) return;
+              const clue = t.closest(".clue");
+              if (!clue) return;
+              const clueId = clue.dataset.clueId;
+              if (!clueId) return;
+              tryFindClue(clueId);
+            });
+            document.addEventListener("keydown", (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              const active = document.activeElement;
+              if (!(active instanceof HTMLElement)) return;
+              const clue = active.closest(".clue");
+              if (!clue) return;
+              const clueId = clue.dataset.clueId;
+              if (!clueId) return;
+              e.preventDefault();
+              tryFindClue(clueId);
+            });
+          };
+
+          return { enter, reset, wire };
+        })();
+
+        const teacher = (() => {
+          const renderDashboard = () => {
+            const total = SCENARIOS.length;
+            const counts = { phishing: 0, blagging: 0, shoulder_surfing: 0, decoy: 0 };
+            SCENARIOS.forEach((sc) => (counts[sc.category] = (counts[sc.category] || 0) + 1));
+
+            const s = state.get();
+            const achieved = {
+              define: s.visitedLearn,
+              phishing: s.categoriesSeen.has("phishing"),
+              blagging: s.categoriesSeen.has("blagging"),
+              shoulder: s.categoriesSeen.has("shoulder_surfing"),
+              decoy: s.categoriesSeen.has("decoy"),
+            };
+
+            dom.teacherBody.innerHTML =
+              `<p class="sub" style="margin:0">Coverage snapshot for AQA 8525 section 3.6.2.1.</p>` +
+              `<div class="dashGrid">` +
+              `<div class="dashCard">` +
+              `<h4>Question Bank</h4>` +
+              `<ul>` +
+              `<li><strong>Total scenarios:</strong> ${total}</li>` +
+              `<li><strong>Phishing:</strong> ${counts.phishing}</li>` +
+              `<li><strong>Blagging/Pretexting:</strong> ${counts.blagging}</li>` +
+              `<li><strong>Shoulder surfing:</strong> ${counts.shoulder_surfing}</li>` +
+              `<li><strong>Decoy (not social engineering):</strong> ${counts.decoy}</li>` +
+              `</ul>` +
+              `</div>` +
+              `<div class="dashCard">` +
+              `<h4>Categories Covered (This Session)</h4>` +
+              `<ul>` +
+              `<li>Visited learning screen: <strong>${achieved.define ? "Yes" : "Not yet"}</strong></li>` +
+              `<li>Phishing encountered: <strong>${achieved.phishing ? "Yes" : "Not yet"}</strong></li>` +
+              `<li>Blagging encountered: <strong>${achieved.blagging ? "Yes" : "Not yet"}</strong></li>` +
+              `<li>Shoulder surfing encountered: <strong>${achieved.shoulder ? "Yes" : "Not yet"}</strong></li>` +
+              `<li>Decoy encountered: <strong>${achieved.decoy ? "Yes" : "Not yet"}</strong></li>` +
+              `</ul>` +
+              `</div>` +
+              `<div class="dashCard">` +
+              `<h4>AQA Mapping</h4>` +
+              `<ul>${AQA_MAPPING.map((x) => `<li>${util.escapeHtml(x)}</li>`).join("")}</ul>` +
+              `</div>` +
+              `<div class="dashCard">` +
+              `<h4>Learning Objectives</h4>` +
+              `<ul>${LEARNING_OBJECTIVES.map((x) => `<li>${util.escapeHtml(x)}</li>`).join("")}</ul>` +
+              `</div>` +
+              `</div>`;
+          };
+
+          const open = () => {
+            renderDashboard();
+            dom.teacherModal.classList.add("show");
+            ui.say("Teacher dashboard opened.");
+          };
+
+          const close = () => {
+            dom.teacherModal.classList.remove("show");
+          };
+
+          const wire = () => {
+            dom.btnTeacher.addEventListener("click", () => {
+              audio.click();
+              open();
+            });
+            dom.btnTeacherClose.addEventListener("click", () => {
+              audio.click();
+              close();
+            });
+            dom.teacherModal.addEventListener("click", (e) => {
+              if (e.target === dom.teacherModal) close();
+            });
+            document.addEventListener("keydown", (e) => {
+              if (e.key === "Escape") close();
+            });
+          };
+
+          return { wire };
+        })();
+
+        const validateScenarioBank = () => {
+          const problems = [];
+          const need = { phishing: 8, blagging: 8, shoulder_surfing: 8, decoy: 8 };
+          const counts = { phishing: 0, blagging: 0, shoulder_surfing: 0, decoy: 0 };
+          SCENARIOS.forEach((s) => (counts[s.category] = (counts[s.category] || 0) + 1));
+          Object.keys(need).forEach((k) => {
+            if ((counts[k] || 0) < need[k]) problems.push(`Need at least ${need[k]} ${k} scenarios (currently ${counts[k] || 0}).`);
+          });
+          if (SCENARIOS.length < 32) problems.push(`Need at least 32 total scenarios (currently ${SCENARIOS.length}).`);
+          return problems;
+        };
+
+        const wireApp = () => {
+          dom.btnGoLearn.addEventListener("click", () => {
+            audio.click();
+            state.markLearnVisited();
+            ui.showScreen("learn");
+          });
+          dom.btnLearnBack.addEventListener("click", () => {
+            audio.click();
+            ui.showScreen("welcome");
+          });
+          dom.btnLearnToGame.addEventListener("click", () => {
+            audio.click();
+            game.startGame();
+          });
+          dom.btnStartGame.addEventListener("click", () => {
+            audio.click();
+            game.startGame();
+          });
+          dom.btnBonus.addEventListener("click", () => {
+            audio.click();
+            bonus.enter();
+          });
+          dom.btnBonusToWelcome.addEventListener("click", () => {
+            audio.click();
+            ui.showScreen("welcome");
+          });
+          dom.btnBonusReset.addEventListener("click", () => {
+            audio.click();
+            bonus.reset();
+          });
+          dom.btnRestartFromWelcome.addEventListener("click", () => {
+            audio.click();
+            state.resetAll();
+            ui.showScreen("welcome");
+            ui.renderHud();
+          });
+          dom.btnQuitToWelcome.addEventListener("click", () => {
+            audio.click();
+            ui.showScreen("welcome");
+          });
+          dom.btnNextCase.addEventListener("click", () => {
+            game.nextCase();
+          });
+          dom.btnPlayAgain.addEventListener("click", () => {
+            audio.click();
+            game.startGame();
+          });
+          dom.btnEndToWelcome.addEventListener("click", () => {
+            audio.click();
+            ui.showScreen("welcome");
+          });
+
+          document.addEventListener("click", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            const btn = t.closest("button.choice");
+            if (!btn) return;
+            game.handleChoose(btn);
+          });
+
+          bonus.wire();
+          teacher.wire();
+        };
+
+        const boot = () => {
+          const problems = validateScenarioBank();
+          wireApp();
+          ui.renderHud();
+          if (problems.length) {
+            ui.say("Scenario bank is incomplete.");
+            dom.btnStartGame.disabled = true;
+            dom.btnLearnToGame.disabled = true;
+            dom.btnStartGame.title = problems.join(" ");
+            dom.btnLearnToGame.title = problems.join(" ");
+          }
+        };
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>

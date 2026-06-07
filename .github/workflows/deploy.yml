@@ -50,13 +50,28 @@ jobs:
             echo "path=dist" >> "$GITHUB_OUTPUT"
           elif [[ -d "build" ]]; then
             echo "path=build" >> "$GITHUB_OUTPUT"
+          elif [[ -d "out" ]]; then
+            echo "path=out" >> "$GITHUB_OUTPUT"
           else
             if [[ -f "package.json" ]]; then
               echo "Build completed but no dist/ or build/ directory found." >&2
               echo "Update this workflow to upload your actual output folder." >&2
               exit 1
             fi
-            echo "path=." >> "$GITHUB_OUTPUT"
+
+            rm -rf site
+            mkdir -p site
+
+            if [[ -f "social-engineering-detective.html" ]]; then
+              cp social-engineering-detective.html site/index.html
+            elif [[ -f "index.html" ]]; then
+              cp index.html site/index.html
+            else
+              echo "No build output folder found and no deployable HTML file found." >&2
+              exit 1
+            fi
+
+            echo "path=site" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Pages

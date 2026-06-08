@@ -1987,6 +1987,7 @@
             coreScore: 0,
             bonusScore: 0,
             answers: {},
+            optionOrders: {},
             missed: [],
             visitedLearn: false,
             categoriesSeen: new Set(),
@@ -2007,6 +2008,7 @@
               s.stage = 1;
               s.coreScore = 0;
               s.answers = {};
+              s.optionOrders = {};
               s.missed = [];
               s.categoriesSeen = new Set();
             },
@@ -2038,6 +2040,15 @@
             },
             setAnswer: (scenarioId, patch) => {
               s.answers[scenarioId] = { ...(s.answers[scenarioId] || {}), ...patch };
+            },
+            getOptionOrder: (scenarioId, group, options) => {
+              if (!s.optionOrders[scenarioId]) {
+                s.optionOrders[scenarioId] = {};
+              }
+              if (!s.optionOrders[scenarioId][group]) {
+                s.optionOrders[scenarioId][group] = util.shuffle(options);
+              }
+              return s.optionOrders[scenarioId][group];
             },
             markMissed: (scenarioId) => {
               if (!s.missed.includes(scenarioId)) s.missed.push(scenarioId);
@@ -2181,23 +2192,26 @@
             const done1 = typeof ans.attackCorrect === "boolean";
             const done2 = typeof ans.targetCorrect === "boolean";
             const done3 = typeof ans.protectCorrect === "boolean";
+            const attackOptions = state.getOptionOrder(scenario.id, "attack", ATTACK_TYPES);
+            const targetOptions = state.getOptionOrder(scenario.id, "target", scenario.targetedInfoOptions || []);
+            const protectOptions = state.getOptionOrder(scenario.id, "protect", scenario.protectionOptions || []);
 
             ui.setDots({ stage: s.stage, done1, done2, done3 });
 
             const caseScore = (ans.attackCorrect ? 1 : 0) + (ans.targetCorrect ? 1 : 0) + (ans.protectCorrect ? 1 : 0);
             dom.ptsPossible.innerHTML = `This case: <strong>${caseScore}</strong>/3`;
 
-            ui.buildChoiceButtons(dom.choicesAttack, ATTACK_TYPES, {
+            ui.buildChoiceButtons(dom.choicesAttack, attackOptions, {
               group: "attack",
               locked: done1,
               selectedValue: ans.chosenAttackType || null,
             });
-            ui.buildChoiceButtons(dom.choicesTarget, scenario.targetedInfoOptions || [], {
+            ui.buildChoiceButtons(dom.choicesTarget, targetOptions, {
               group: "target",
               locked: !done1 || done2,
               selectedValue: ans.chosenTargetedInfo || null,
             });
-            ui.buildChoiceButtons(dom.choicesProtect, scenario.protectionOptions || [], {
+            ui.buildChoiceButtons(dom.choicesProtect, protectOptions, {
               group: "protect",
               locked: !done2 || done3,
               selectedValue: ans.chosenProtection || null,

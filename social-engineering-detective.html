@@ -1973,6 +1973,9 @@
           byId(id) {
             return SCENARIOS.find((s) => s.id === id) || null;
           },
+          normalizeText(txt) {
+            return String(txt ?? "").replaceAll("\\n", "\n");
+          },
           escapeHtml(txt) {
             return String(txt).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
           },
@@ -2186,7 +2189,7 @@
             dom.scenarioMetaLeft.textContent = `Source: ${scenario.source || "—"}`;
             dom.scenarioMetaRight.textContent = "Rule: verify before you trust";
             dom.scenarioTitle.textContent = scenario.title || "—";
-            dom.scenarioStory.textContent = scenario.story || "—";
+            dom.scenarioStory.textContent = util.normalizeText(scenario.story || "—");
 
             const ans = s.answers[scenario.id] || {};
             const done1 = typeof ans.attackCorrect === "boolean";
@@ -2328,7 +2331,7 @@
                 `<summary><span>${util.escapeHtml(scenario.title)}</span><span style="font-family:var(--mono);color:rgba(255,204,86,0.9);font-size:12px">${util.escapeHtml(summaryRight)}</span></summary>` +
                 `<div class="reviewBody">` +
                 `<div class="mini">Scenario</div>` +
-                `<div style="white-space:pre-wrap">${util.escapeHtml(scenario.story)}</div>` +
+                `<div style="white-space:pre-wrap">${util.escapeHtml(util.normalizeText(scenario.story))}</div>` +
                 `<div class="mini">Your answers vs correct</div>` +
                 `<div class="ans">` +
                 `<div><strong>Attack type:</strong> ${util.escapeHtml(ans.chosenAttackType || "—")} <span style="opacity:.7">/ correct: ${util.escapeHtml(scenario.correctAttackType)}</span></div>` +
